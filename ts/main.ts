@@ -9,6 +9,88 @@ var Int : any;
 
 var MainShader : Shader;
 
+var CubeData = // x, y, z, a, b, c, u, v
+[
+
+	// bottom y
+
+	-1, -1, -1, 0, -1, 0, -1, -1,
+	1, -1, -1, 0, -1, 0, 1, -1,
+	-1, -1, 1, 0, -1, 0, -1, 1,
+
+	-1, -1, 1, 0, -1, 0, -1, 1,
+	1, -1, -1, 0, -1, 0, 1, -1,
+	1, -1, 1, 0, -1, 0, 1, 1,
+
+	// top
+
+	-1, 1, -1, 0, 1, 0, -1, -1,
+	-1, 1, 1, 0, 1, 0, -1, 1,
+	1, 1, -1, 0, 1, 0, 1, -1,
+
+	-1, 1, 1, 0, 1, 0, -1, 1,
+	1, 1, 1, 0, 1, 0, 1, 1,
+	1, 1, -1, 0, 1, 0, 1, -1,
+
+	// left x
+
+	-1, -1, -1, -1, 0, 0, -1, -1,
+	-1, -1, 1, -1, 0, 0, -1, 1,
+	-1, 1, -1, -1, 0, 0, 1, -1,
+
+	-1, -1, 1, -1, 0, 0, -1, 1,
+	-1, 1, 1, -1, 0, 0, 1, 1,
+	-1, 1, -1, -1, 0, 0, 1, -1,
+
+	// right
+
+	1, -1, -1, 1, 0, 0, -1, -1,
+	1, 1, -1, 1, 0, 0, 1, -1,
+	1, -1, 1, 1, 0, 0, -1, 1,
+
+	1, -1, 1, 1, 0, 0, -1, 1,
+	1, 1, -1, 1, 0, 0, 1, -1,
+	1, 1, 1, 1, 0, 0, 1, 1,
+
+	// front z
+
+	-1, -1, -1, 0, 0, -1, -1, -1,
+	-1, 1, -1, 0, 0, -1, -1, 1,
+	1, -1, -1, 0, 0, -1, 1, -1,
+
+	1, -1, -1, 0, 0, -1, 1, -1,
+	-1, 1, -1, 0, 0, -1, -1, 1,
+	1, 1, -1, 0, 0, -1, 1, 1,
+
+	// back
+
+	-1, -1, 1, 0, 0, 1, -1, -1,
+	1, -1, 1, 0, 0, 1, 1, -1,
+	-1, 1, 1, 0, 0, 1, -1, 1,
+
+	1, -1, 1, 0, 0, 1, 1, -1,
+	1, 1, 1, 0, 0, 1, 1, 1,
+	-1, 1, 1, 0, 0, 1, -1, 1
+
+];
+
+var FaceData =
+[
+
+	-1, -1, 1, 0, 0, 1, -1, -1,
+	1, -1, 1, 0, 0, 1, 1, -1,
+	-1, 1, 1, 0, 0, 1, -1, 1,
+
+	1, -1, 1, 0, 0, 1, 1, -1,
+	1, 1, 1, 0, 0, 1, 1, 1,
+	-1, 1, 1, 0, 0, 1, -1, 1
+
+];
+
+var FaceModel : Model;
+
+var MainCube : Cube;
+
 window.onload = function() : void
 {
 
@@ -37,6 +119,13 @@ window.onload = function() : void
 
 	Input.Start();
 
+	FaceModel = new Model();
+	FaceModel.UpdateMesh(FaceData);
+
+	MainShader = new Shader("main", ["Model", "ViewProjection", "Color"]);
+
+	MainCube = new Cube();
+
 	Int = setInterval(Update, 16.666666667);
 
 }
@@ -46,6 +135,8 @@ function Update()
 
 	// Update
 
+	MainCube.Update();
+
 	// End of Update, render
 
 	Input.PushBackInputs();
@@ -53,12 +144,16 @@ function Update()
 	gl.clearColor(0.0, 0.0, 0.0, 1.0);
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+	MainCube.Render();
+
 }
 
 window.onunload = function() : void
 {
 
-	
+	MainCube.Delete();
+	FaceModel.Delete();
+	MainShader.Delete();
 
 }
 
@@ -97,6 +192,128 @@ window.onmousemove = function(Event) : void
 {
 
 	
+
+}
+
+class Cube
+{
+
+	private YTurns : number = 0;
+	private XTurns : number = 0;
+	private YInterpolate : number = 0;
+	private XInterpolate : number = 0;
+
+	private static InterpolateRate : number = 0.1;
+
+	private Color = vec3.fromValues(1, 1, 1);
+
+	private static CubeModel : Model;
+
+	constructor()
+	{
+
+		Cube.CubeModel = new Model();
+
+		Cube.CubeModel.UpdateMesh(CubeData);
+
+		console.log(MainShader);
+
+	}
+
+	public Update() : void
+	{
+
+		if (Input.IsKeyPressed(37)) this.YTurns++;
+		if (Input.IsKeyPressed(38)) this.XTurns++;
+		if (Input.IsKeyPressed(39)) this.YTurns--;
+		if (Input.IsKeyPressed(40)) this.XTurns--;
+
+		if (Math.abs(this.XTurns) > 1)
+		{
+
+			this.XTurns = 0;
+			this.YTurns += 2;
+			
+		}
+
+		this.XInterpolate += (this.XTurns - this.XInterpolate) * Cube.InterpolateRate;
+		this.YInterpolate += (this.YTurns - this.YInterpolate) * Cube.InterpolateRate;
+
+	}
+
+	public Render() : void
+	{
+
+		var a : Float32Array = mat4.create();
+		var b : Float32Array = mat4.create();
+		var Model : Float32Array = mat4.create();
+		var ViewProjection : Float32Array = mat4.create();
+
+		mat4.fromRotation(a, this.XInterpolate * Math.PI / 2, vec3.fromValues(1, 0, 0));
+		mat4.fromRotation(b, this.YInterpolate * Math.PI / 2, vec3.fromValues(0, 1, 0));
+
+		mat4.multiply(Model, a, b);
+
+		mat4.fromTranslation(a, vec3.fromValues(0, 0, -3));
+		mat4.perspective(b, Math.PI / 2, canvas.width / canvas.height, 0.01, 100);
+
+		mat4.multiply(ViewProjection, b, a);
+
+		MainShader.Use();
+
+		MainShader.UniformMat4("Model", Model);
+		MainShader.UniformMat4("ViewProjection", ViewProjection);
+
+		MainShader.UniformVec3("Color", this.Color);
+
+		Cube.CubeModel.Render();
+
+	}
+
+	public Delete() : void
+	{
+
+		Cube.CubeModel.Delete();
+
+	}
+
+}
+
+class Component
+{
+
+	private XTurns : number = 0;
+	private YTurns : number = 0;
+
+	private Depth : number = 1;
+
+	private Scale : Float32Array;
+	private Position : Float32Array;
+
+	private Color : Float32Array;
+
+	constructor(x : number, y : number, d : number, scal : Float32Array, pos : Float32Array, col : Float32Array)
+	{
+
+		this.XTurns = x;
+		this.YTurns = y;
+		this.Depth = d;
+		this.Scale = scal;
+		this.Position = pos;
+		this.Color = col;
+
+	}
+
+	public Render() : void
+	{
+
+		var scal : Float32Array = mat4.create();
+		var trans : Float32Array = mat4.create();
+		var b : Float32Array = mat4.create();
+
+		FaceModel.Render();
+		
+	}
 
 }
 
@@ -284,8 +501,8 @@ class Shader
 				}
 
 				context.PositionLocation = gl.getAttribLocation(ShaderProgram, "Position");
-				context.NormalLocation = gl.getAttribLocation(ShaderProgram, "Normal");
-				context.UVLocation = gl.getAttribLocation(ShaderProgram, "UV");
+				context.NormalLocation = 1;//gl.getAttribLocation(ShaderProgram, "Normal");
+				context.UVLocation = 2;//gl.getAttribLocation(ShaderProgram, "UV");
 
 				context.UniformMap = {};
 
